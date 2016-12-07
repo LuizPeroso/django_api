@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+ACTION=${1}
+APP=${2}
+VERSION=${3}
+WORKER=${4}
+
+# //TODO: CHANGE ME :)
+IMAGE=docker.rj1.muxi.corp/blank-django
+
+check(){
+    # Check style sheet pending developed codes.
+    echo "---> Searching api..."
+    cd api
+    echo "---> Installig requirements..."
+    pip install -r requirements_test.txt
+    mkdir -p reports
+    echo "---> Runnig Flake8..."
+    flake8 */*.py --count > reports/check_result_flake8.txt
+    echo "---> Runnig Pep8..."
+    pep8 */*.py --count > reports/check_result_pep8.txt
+}
+
+build(){
+    # Update source code with the last commit of the requested version for the build.
+    echo "---> Fetching the Application repository Git..."
+    git fetch --all
+
+    if [ $VERSION = "dev" ]
+    then
+        echo "---> Checkout to version $VERSION of repository Git..."
+        git checkout develop
+        echo "---> Pulling application code for $VERSION..."
+        git pull origin develop
+    else
+        echo "---> Checkout to version $VERSION of repository Git..."
+        git checkout $VERSION
+        echo "---> Pulling application code to $VERSION ..."
+        git pull origin $VERSION
+    fi
+
+    # Uses the dockerfile with the params to create a respective dockerimage.
+    if [ $APP = "worker"]
+    then
+        if [ $WORKER ]
+        then
+            echo "---> Building ${IMAGE}-${APP}-${WORKER}:${VERSION} with Dockerfile.${APP}.${WORKER}..."
+            docker build -t ${IMAGE}-${APP}-${WORKER}:${VERSION} -f Dockerfile.${APP}.${WORKER} .
+
+            echo "---> Pushing ${IMAGE}-${APP}-${WORKER}:${VERSION}..."
+            docker push ${IMAGE}-${APP}-${WORKER}:${VERSION}
+        else
+            echo "---> Building ${IMAGE}-${APP}:${VERSION} with Dockerfile.${APP}..."
+            docker build -t ${IMAGE}-${APP}:${VERSION} -f Dockerfile.${APP} .
+
+            echo "---> Pushing ${IMAGE}-${APP}-${WORKER}:${VERSION}..."
+            docker push ${IMAGE}-${APP}:${VERSION}
+        fi
+    else
+        echo "---> Building ${IMAGE}-${APP}:${VERSION} with Dockerfile.${APP}..."
+        docker build -t ${IMAGE}-${APP}:${VERSION} -f Dockerfile.${APP} .
+
+        echo "---> Pushing ${IMAGE}-${APP}:${VERSION}..."
+        docker push ${IMAGE}-${APP}:${VERSION}
+    fi
+}
+
+itest(){
+    # Run ZATO tests.
+    echo "---> Stopping updated docker images..."
+    docker-compose down
+    echo "---> Starting updated docker images..."
+    docker-compose up -d
+    sleep 10
+    echo "---> Installing api dependencies..."
+    pip install -r requirements_test.txt
+    echo "---> Running ZATO tests..."
+    apitest run test
+}
+
+jtest(){
+    # Run JENKINS tests and create COVERAGE reports.
+    echo "---> Stopping updated docker images..."
+    docker-compose down
+    echo "---> Starting updated docker images..."
+    docker-compose up -d
+    sleep 10
+    echo "---> Searching api..."
+    cd api
+    echo "---> Installing api dependencies..."
+    pip install -r requirements_test.txt
+    echo "---> Running JENKINS and COVERAGE tests..."
+    python manage.py jenkins --settings main.settings_test --enable-coverage
+}
+
+utest(){
+    # Run unit tests.
+    echo "---> Stopping updated docker images..."
+    docker-compose down
+    echo "---> Starting updated docker images..."
+    docker-compose up -d
+    sleep 10
+    echo "---> Searching api..."
+    cd api
+    echo "---> Installing api dependencies..."
+    pip install -r requirements_test.txt
+    echo "---> Running tests..."
+    python manage.py test --settings main.settings_test
+}
+
+dev(){
+    # Start API aplication for development.
+    echo "---> Stopping updated docker images..."
+    docker-compose down
+    echo "---> Starting updated docker images..."
+    docker-compose up -d
+    sleep 8
+    echo "---> Searching api..."
+    cd api
+    echo "---> Installing dependencies ..."
+    pip install -r requirements.txt
+    echo "---> Starting development server ..."
+    python manage.py makemigrations
+    python manage.py migrate
+    python manage.py runserver 0.0.0.0:8000
+}
+
+echo "Executing the command ${ACTION}..."
+${ACTION}

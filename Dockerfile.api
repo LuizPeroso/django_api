@@ -1,0 +1,11 @@
+FROM jesuejunior/python:2
+MAINTAINER Jesue Junior <jjunior@muxi.com.br>
+
+COPY api /app
+WORKDIR /app
+RUN pip install -r requirements.txt --no-cache-dir \
+    && python manage.py collectstatic --noinput
+
+EXPOSE 8000
+
+CMD ["gunicorn", "-b", "0.0.0.0:8000", "-w", "2", "main.wsgi:application"]

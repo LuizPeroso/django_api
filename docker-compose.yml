@@ -1,0 +1,71 @@
+version: '2'
+services:
+    mysql:
+        image: mysql:5.6
+        environment:
+            MYSQL_ALLOW_EMPTY_PASSWORD: 'True'
+            MYSQL_ROOT_PASSWORD: 'root'
+        ports:
+            - "3306:3306"
+        expose:
+            - 3306
+    mongo:
+        image: mongo:3
+        volumes:
+            - /opt/mongo/data/db:/data/db
+        ports:
+            - "27017:27017"
+        expose:
+            - 27017
+    authentication:
+        image: docker.rj1.muxi.corp/authentication-api:1.0.0
+        mem_limit: 512M
+        depends_on:
+            - mongo
+        environment:
+            PROD: 'True'
+            DEBUG: 'False'
+            LOGSTASH_HOST: elk.rj1.muxi.corp
+            LOGSTASH_PORT: 28777
+            MONGO_DB: authentication
+            MONGO_PORT: 27017
+            MONGO_HOSTS: mongo
+        links:
+            - "mongo:mongo"
+        ports:
+            - "8001:8000"
+        expose:
+            - 8001
+
+    # Examples. Uncomment when you need it.
+    # redis:
+    #     image: redis:3.0.7-alpine
+    #     ports:
+    #     - "6379:6379"
+    # mongo:
+    #     image: mongo:3
+    #     volumes:
+    #         - /opt/mongo/data/db:/data/db
+    #     ports:
+    #         - "27017:27017"
+    #     expose:
+    #         - 27017
+    # merchant:
+    #     build: /code/corp-merchant
+    #     mem_limit: 512M
+    #     depends_on:
+    #         - mongo
+    #     environment:
+    #         PROD: 'True'
+    #         DEBUG: 'False'
+    #         LOGSTASH_HOST: elk.rj1.muxi.corp
+    #         LOGSTASH_PORT: 28777
+    #         MONGO_DB: merchant
+    #         MONGO_PORT: 27017
+    #         MONGO_HOSTS: mongo
+    #     links:
+    #         - "mongo:mongo"
+    #     expose:
+    #         - 8001
+    #     ports:
+    #         - "8001:8000"
